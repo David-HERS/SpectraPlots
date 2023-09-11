@@ -1,6 +1,6 @@
-import sys 
+import sys
 
-import numpy as np 
+import numpy as np
 import h5py
 
 
