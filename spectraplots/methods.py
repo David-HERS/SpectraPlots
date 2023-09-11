@@ -39,7 +39,7 @@ def array_region(a, *intervals, index=False, dim=0):
     Returns
     ___________________________________________________________________________ 
     res:
-        The concatenated array with intervasl choosen.
+        The concatenated array with intervasl chosen.
 
     """
     def __region(a, begin, end):
@@ -105,7 +105,7 @@ def fit_baseline(spectra, baseline, *intervals,
 
     def __baseline_model(x, *parameters):
         y = model(baseline[:,1], *parameters) 
-        return y 
+        return y
 
     def __res(parameters, x, y):
         return y - __baseline_model(x, *parameters)
