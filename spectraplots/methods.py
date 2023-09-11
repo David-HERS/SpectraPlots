@@ -5,11 +5,11 @@ import sys
 import h5py
 import numpy as np
 from scipy.optimize import least_squares
+from scipy.constants import h, c, e
 
-
-def FindNear(a, Near):
+def find_near(a, Near):
     """
-    FindNear(x, Near)
+    find_near(x, Near)
     
     Returns
     ___________________________________________________________________________ 
@@ -20,7 +20,7 @@ def FindNear(a, Near):
     nearpos = (np.abs(a-Near)).argmin()
     return nearpos
 
-def ArrayRegion(a, *intervals, index=False, dim=0):
+def array_region(a, *intervals, index=False, dim=0):
     """
     Returns the selected region selected with the *intervals pos variable
 
@@ -51,8 +51,8 @@ def ArrayRegion(a, *intervals, index=False, dim=0):
     a = np.asarray(a)
     for i, interval in enumerate(intervals):
         if index: begin, end = a[interval[0], interval[1]]
-        else : begin, end= (FindNear(a[:, dim], interval[0]),
-                            FindNear(a[:, dim], interval[1])
+        else : begin, end= (find_near(a[:, dim], interval[0]),
+                            find_near(a[:, dim], interval[1])
                             )
         if i==0: region = __region(a, begin, end)
         else: region = np.concatenate((region,__region(a, begin, end)))
@@ -62,9 +62,9 @@ def ArrayRegion(a, *intervals, index=False, dim=0):
 ###############################################################################
 #MODELS
 ###############################################################################
-def LinearModel(x, m=1.0, b=0.0): 
+def linear_model(x, m=1.0, b=0.0): 
     """Linear model
-    LinearModel(x , m = slope, b= intercept)
+    linear_model(x , m = slope, b= intercept)
     return mx+b 
     """
     return x*m + b
@@ -73,8 +73,8 @@ def LinearModel(x, m=1.0, b=0.0):
 #Fits
 ###############################################################################
 
-def FitBaseline(spectra, baseline, *intervals,
-        model= LinearModel, parameters= (1.0, 0.0), index = False, dim=0):
+def fit_baseline(spectra, baseline, *intervals,
+        model= linear_model, parameters= (1.0, 0.0), index = False, dim=0):
     """
     Return the optimal baseline for a spectra
  
@@ -90,7 +90,7 @@ def FitBaseline(spectra, baseline, *intervals,
                 has the form [a1, a2] a2>a1 or  *[[a1,a2], [b1,b2]]...
                 check ArrayRegiom() function.
     model: func
-           default LinearModel(x, m=slope, b=intercept)
+           default linear_model(x, m=slope, b=intercept)
     parameters: model parameters
                 default (m=1.0, b=0.0)
             
@@ -100,18 +100,28 @@ def FitBaseline(spectra, baseline, *intervals,
          References https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.least_squares.html#scipy.optimize.least_squares
     """
 
-    spectra = ArrayRegion(spectra, *intervals, index=index, dim=dim)
-    baseline = ArrayRegion(baseline, *intervals, index=index, dim=dim)
+    spectra = array_region(spectra, *intervals, index=index, dim=dim)
+    baseline = array_region(baseline, *intervals, index=index, dim=dim)
 
-    def __BaselineModel(x, *parameters):
+    def __baseline_model(x, *parameters):
         y = model(baseline[:,1], *parameters) 
         return y 
 
     def __res(parameters, x, y):
-        return y - __BaselineModel(x, *parameters)
+        return y - __baseline_model(x, *parameters)
 
     result = least_squares(__res, parameters,
             args = (spectra[:,0], spectra[:,1]))
     return result
 
+def nm_to_ev(unit):
+    np.seterr(divide='ignore', invalid='ignore')  # Suppress divide-by-zero warnings
+    try:
+        to_unit = h * c / (unit * e * 1e-9)
+    except ZeroDivisionError as err:
+        print('nanometers or eV cant be zero:', err)
+        return np.nan
+    finally:
+        np.seterr(divide='warn', invalid='warn')  # Reset warning behavior
+    return np.where(unit != 0, to_unit, np.nan)
 
