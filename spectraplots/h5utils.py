@@ -48,17 +48,46 @@ def __all_keys(file_name_or_object, deep = 10, mode = 'r' ):
                     keys = keys + (value.name,)
     return keys
 
-def h5_keys(file_name_or_object, data_criteria = None, object_criteria = None, deep = 10):
+def yield_keys(file_name_or_object, name_criteria = None,
+        object_criteria= None, deep = 10, mode = 'r' , method= None):
+    "Yields the keys for the h5 file  with some cirterias"
+    def __default_criteria(path):
+        return True
+    name_criteria = name_criteria or __default_criteria
+    object_criteria = object_criteria or __default_criteria
+    method = method or __default_criteria
+
+    with acces_h5(file_name_or_object, mode = mode) as h5_object:
+        if object_criteria(h5_object) and name_criteria(h5_object.name):
+            method(h5_object)
+            yield  h5_object.name
+        deep  = abs(deep) #for bool(0jj)
+        if bool(deep):
+            deep -= 1
+            for key, value in h5_object.items():
+                key = value.name
+                if isinstance(value, h5py.Group):
+                    yield from yield_keys(value, deep=deep, mode=mode,
+                            name_criteria=name_criteria,
+                            object_criteria=object_criteria)
+                elif (isinstance(value, h5py.Dataset) and
+                        object_criteria(value) and
+                        name_criteria(key)):
+                    method(value)
+                    yield key
+
+def h5_keys(file_name_or_object, name_criteria = None, object_criteria = None,
+        deep = 10):
     """Return names of the h5_obj with criteria name and object"""
     def __default_criteria(path):
         return True
-    data_criteria = data_criteria or __default_criteria
+    name_criteria = name_criteria or __default_criteria
     object_criteria = object_criteria or __default_criteria
 
     names = __all_keys(file_name_or_object, deep = deep)
     with acces_h5(file_name_or_object, mode='r') as h5_object:
         names_criteria = [name for name in names
-                if object_criteria(h5_object.get(name)) and data_criteria(name)]
+                if object_criteria(h5_object.get(name)) and name_criteria(name)]
     return names_criteria
 
 ###############################################################################
@@ -156,32 +185,32 @@ def string_to_float(number_string, dot='.'):
         number = float('Nan')
     return number
 
-#def extract_attribute(file_name_or_object, keys,  attribute_name,
-#        criteria=False, rule=False, start=None, end=None, step=None):
-#    """
-#    attr_name
-#    Create a hdf5 attribute with the file name with a rule the default 
-#    is replace the '_' with '.' and seatch the number_string 
-#    Parameters:
-#    ---------------------------------------------------------------------------   
-#    h5_obj: h5py.Group, h5py.File
-#            Contains Datasets 
-#    keys: Array of strings
-#         ['key1', 'key2'...,'keyn']
-#    search_interval: array like
-#                     [interval1, interval2] where interval1>interval2
-#    rule: func
-#          Method to choose the attribute value with key file 
-#    """
-#    with acces_h5(file_name_or_object, mode='r+') as h5_object:
-#
-#    if not(rule):rule= lambda number_string:string_to_float(number_string, dot='_')
-#    if not(criteria): criteria= __default_criteria
-#    slide = slice(start, end, step)
-#    
-#    for key in keys:
-#        key_short = key[slide]
-#        attribute = rule(key_short)
-#        h5_object.get(key).attrs.create(attribute_name, np.float64(attribute))
-#    return h5_object
+def extract_attribute(file_name_or_object, keys,  attribute_name,
+        criteria=False, rule=False, start=None, end=None, step=None):
+    """
+    attr_name
+    Create a hdf5 attribute with the file name with a rule the default 
+    is replace the '_' with '.' and seatch the number_string 
+    Parameters:
+    ---------------------------------------------------------------------------   
+    h5_obj: h5py.Group, h5py.File
+            Contains Datasets 
+    keys: Array of strings
+         ['key1', 'key2'...,'keyn']
+    search_interval: array like
+                     [interval1, interval2] where interval1>interval2
+    rule: func
+          Method to choose the attribute value with key file 
+    """
+    with acces_h5(file_name_or_object, mode='r+') as h5_object:
+
+        if not(rule):rule= lambda number_string:string_to_float(number_string, dot='_')
+        if not(criteria): criteria= __default_criteria
+        slide = slice(start, end, step)
+        
+        for key in keys:
+            key_short = key[slide]
+            attribute = rule(key_short)
+            h5_object.get(key).attrs.create(attribute_name, np.float64(attribute))
+    return file_name_or_object
 
