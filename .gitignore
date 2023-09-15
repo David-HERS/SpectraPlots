@@ -28,7 +28,7 @@ MANIFEST
 
 # PyInstaller
 #  Usually these files are written by a python script from a template
-#  before PyInstaller builds the exe, so as to inject date/other infos into it.
+printb#  before PyInstaller builds the exe, so as to inject date/other infos into it.
 *.manifest
 *.spec
 
@@ -163,7 +163,8 @@ cython_debug/
 *.h5
 *.hdf5
 
-# Other folders 
+# Other folders and files
 ./notebooks
 ./mplstyles
 ./hdf5
+test.py
