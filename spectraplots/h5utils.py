@@ -34,6 +34,7 @@ class h5FileContext:
 def acces_h5(file_name_or_object, mode='r'):
     return h5FileContext(file_name_or_object, mode=mode)
 
+
 def __all_keys(file_name_or_object, deep = 10, mode = 'r' ):
     "Recursively find all keys in an h5py.Group."
     with acces_h5(file_name_or_object, mode = mode) as h5_object:
@@ -48,18 +49,19 @@ def __all_keys(file_name_or_object, deep = 10, mode = 'r' ):
                     keys = keys + (value.name,)
     return keys
 
+
 def yield_keys(file_name_or_object, name_criteria = None,
-        object_criteria= None, deep = 10, mode = 'r' , method= None):
+        object_criteria= None, deep = 10, mode = 'r' , func= None):
     "Yields the keys for the h5 file  with some cirterias"
     def __default_criteria(path):
         return True
     name_criteria = name_criteria or __default_criteria
     object_criteria = object_criteria or __default_criteria
-    method = method or __default_criteria
+    func = func or __default_criteria
 
     with acces_h5(file_name_or_object, mode = mode) as h5_object:
         if object_criteria(h5_object) and name_criteria(h5_object.name):
-            method(h5_object)
+            func(h5_object)
             yield  h5_object.name
         deep  = abs(deep) #for bool(0jj)
         if bool(deep):
@@ -69,11 +71,11 @@ def yield_keys(file_name_or_object, name_criteria = None,
                 if isinstance(value, h5py.Group):
                     yield from yield_keys(value, deep=deep, mode=mode,
                             name_criteria=name_criteria,
-                            object_criteria=object_criteria)
+                            object_criteria=object_criteria, func=func)
                 elif (isinstance(value, h5py.Dataset) and
                         object_criteria(value) and
                         name_criteria(key)):
-                    method(value)
+                    func(value)
                     yield key
 
 def h5_keys(file_name_or_object, name_criteria = None, object_criteria = None,
@@ -146,7 +148,7 @@ def criteria_name(
     return satisfy
 
 ###############################################################################
-#for create hdf5 files 
+#for create or modify hdf5 files 
 ###############################################################################
 def string_to_float(number_string, dot='.'):
     
@@ -185,7 +187,7 @@ def string_to_float(number_string, dot='.'):
         number = float('Nan')
     return number
 
-def extract_attribute(file_name_or_object, keys,  attribute_name,
+def apply_attribute(file_name_or_object, keys,  attribute_name,
         criteria=False, rule=False, start=None, end=None, step=None):
     """
     attr_name
