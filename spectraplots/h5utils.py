@@ -1,3 +1,4 @@
+from os import access
 import sys
 import string
 
@@ -31,13 +32,13 @@ class h5FileContext:
             self.h5_file.close()
 
 
-def acces_h5(file_name_or_object, mode='r'):
+def __acces_h5(file_name_or_object, mode='r'):
     return h5FileContext(file_name_or_object, mode=mode)
 
 
 def __all_keys(file_name_or_object, deep = 10, mode = 'r' ):
     "Recursively find all keys in an h5py.Group."
-    with acces_h5(file_name_or_object, mode = mode) as h5_object:
+    with __acces_h5(file_name_or_object, mode = mode) as h5_object:
         keys = (h5_object.name,)
         deep  = abs(deep) #for bool(0jj)
         if bool(deep):
@@ -59,7 +60,7 @@ def yield_keys(file_name_or_object, name_criteria = None,
     object_criteria = object_criteria or __default_criteria
     func = func or __default_criteria
 
-    with acces_h5(file_name_or_object, mode = mode) as h5_object:
+    with __acces_h5(file_name_or_object, mode = mode) as h5_object:
         if object_criteria(h5_object) and name_criteria(h5_object.name):
             func(h5_object)
             yield  h5_object.name
@@ -78,7 +79,7 @@ def yield_keys(file_name_or_object, name_criteria = None,
                     func(value)
                     yield key
 
-def h5_keys(file_name_or_object, name_criteria = None, object_criteria = None,
+def __h5_keys(file_name_or_object, name_criteria = None, object_criteria = None,
         deep = 10):
     """Return names of the h5_obj with criteria name and object"""
     def __default_criteria(path):
@@ -187,8 +188,8 @@ def string_to_float(number_string, dot='_'):
         number = float('Nan')
     return number
 
-def apply_attribute(file_name_or_object, keys,  attribute_name,
-        criteria=False, rule=string_to_float, start=None, end=None, step=None):
+def __apply_attributes(file_name_or_object, keys,  attribute_name,
+        criteria=False, func=string_to_float, start=None, end=None, step=None):
     """
     attr_name
     Create a hdf5 attribute with the file name with a rule the default 
@@ -204,15 +205,26 @@ def apply_attribute(file_name_or_object, keys,  attribute_name,
     rule: func
           Method to choose the attribute value with key file 
     """
-    with acces_h5(file_name_or_object, mode='r+') as h5_object:
+    with __acces_h5(file_name_or_object, mode='r+') as h5_object:
         if not(criteria): criteria= __default_criteria
         slide = slice(start, end, step)
         
         for key in keys:
             key_short = key[slide]
-            attribute = rule(key_short)
+            attribute = func(key_short)
             h5_object.get(key).attrs.create(attribute_name, np.float64(attribute))
     return file_name_or_object
+
+def apply_name_attribute(h5_object, attribute_name, func=string_to_float,
+        start = None, end=None, step=None, confirm=True):
+   """
+
+   """
+   slide = slice(start, end, step)
+   attribute = func(h5_object.name[slide])
+   if confirm:
+       h5_object.attrs.create(attribute_name, np.float64(attribute))
+   return attribute
 
 
 class h5Utils():
@@ -263,7 +275,7 @@ class h5Utils():
         self.func = None
 
     def acces_h5(self):
-        return acces_h5(self.file_name_or_object, mode=self.mode)
+        return __acces_h5(self.file_name_or_object, mode=self.mode)
 
     def select_keys(self):
         return yield_keys(self.file_name_or_object,
@@ -271,4 +283,9 @@ class h5Utils():
                 object_criteria=self.object_criteria,
                 deep=self.deep, mode=self.mode, func=self.func)
 
-
+    def apply_keys(self, keys):
+        with acces_h5(self) as h5_object:
+            for  key in keys:
+                if self.func:
+                    self.func(h5_object.get(keys))
+                    yield h5_object.get(key)
