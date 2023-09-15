@@ -7,6 +7,8 @@ import numpy as np
 from scipy.optimize import least_squares
 from scipy.constants import h, c, e
 
+
+
 def find_near(a, Near):
     """
     find_near(x, Near)
@@ -58,7 +60,17 @@ def array_region(a, *intervals, index=False, dim=0):
         else: region = np.concatenate((region,__region(a, begin, end)))
     return region
 
-   
+def nm_to_ev(unit):
+    np.seterr(divide='ignore', invalid='ignore')  # Suppress divide-by-zero warnings
+    try:
+        to_unit = h * c / (unit * e * 1e-9)
+    except ZeroDivisionError as err:
+        print('nanometers or eV cant be zero:', err)
+        return np.nan
+    finally:
+        np.seterr(divide='warn', invalid='warn')  # Reset warning behavior
+    return np.where(unit != 0, to_unit, np.nan)
+
 ###############################################################################
 #MODELS
 ###############################################################################
@@ -69,6 +81,9 @@ def linear_model(x, m=1.0, b=0.0):
     """
     return x*m + b
 
+def sommerfel_broadening(x, amplitude, center, sigma, rydberg):
+    return ((amplitude/(1+np.exp((-x+center)/sigma)))
+            *(2/(1+np.exp(-2*np.pi*np.sqrt(rydberg/abs(x-center))))))
 ###############################################################################
 #Fits
 ###############################################################################
@@ -114,14 +129,4 @@ def fit_baseline(spectra, baseline, *intervals,
             args = (spectra[:,0], spectra[:,1]))
     return result
 
-def nm_to_ev(unit):
-    np.seterr(divide='ignore', invalid='ignore')  # Suppress divide-by-zero warnings
-    try:
-        to_unit = h * c / (unit * e * 1e-9)
-    except ZeroDivisionError as err:
-        print('nanometers or eV cant be zero:', err)
-        return np.nan
-    finally:
-        np.seterr(divide='warn', invalid='warn')  # Reset warning behavior
-    return np.where(unit != 0, to_unit, np.nan)
 
