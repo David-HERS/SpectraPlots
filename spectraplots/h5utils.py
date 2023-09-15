@@ -150,7 +150,7 @@ def criteria_name(
 ###############################################################################
 #for create or modify hdf5 files 
 ###############################################################################
-def string_to_float(number_string, dot='.'):
+def string_to_float(number_string, dot='_'):
     
     #clean number_string
     alphabet = list(string.ascii_letters)
@@ -188,7 +188,7 @@ def string_to_float(number_string, dot='.'):
     return number
 
 def apply_attribute(file_name_or_object, keys,  attribute_name,
-        criteria=False, rule=False, start=None, end=None, step=None):
+        criteria=False, rule=string_to_float, start=None, end=None, step=None):
     """
     attr_name
     Create a hdf5 attribute with the file name with a rule the default 
@@ -205,8 +205,6 @@ def apply_attribute(file_name_or_object, keys,  attribute_name,
           Method to choose the attribute value with key file 
     """
     with acces_h5(file_name_or_object, mode='r+') as h5_object:
-
-        if not(rule):rule= lambda number_string:string_to_float(number_string, dot='_')
         if not(criteria): criteria= __default_criteria
         slide = slice(start, end, step)
         
@@ -215,4 +213,62 @@ def apply_attribute(file_name_or_object, keys,  attribute_name,
             attribute = rule(key_short)
             h5_object.get(key).attrs.create(attribute_name, np.float64(attribute))
     return file_name_or_object
+
+
+class h5Utils():
+    def __init__(self, file_name_or_object, mode = 'r', deep = 10, 
+            name_criteria=None, object_criteria=None, func=None):
+       self.file_name_or_object = file_name_or_object
+       self.mode = mode
+       self.name_criteria = name_criteria
+       self.object_criteria = object_criteria
+       self.deep = deep
+       self.func = func
+
+    @property
+    def file_name_or_object(self):
+        return self._file_name_or_object
+
+    @file_name_or_object.setter
+    def file_name_or_object(self, file_name_or_object):
+        if isinstance(file_name_or_object, h5py.File):
+            # User provided an already open HDF5 file
+            self._file_name_or_object = file_name_or_object
+        elif isinstance(file_name_or_object, h5py.Group):
+            # User provided an already open HDF5 group
+            self._file_name_or_object = file_name_or_object
+        elif isinstance(file_name_or_object, str):
+            # User provided a file name, so open it
+            self._file_name_or_object = file_name_or_object
+        else:
+            raise TypeError("Unsupported type for 'file_name_or_object'. Must be an H5 object (File or Group) or a string file name.")
+
+    @property
+    def mode(self):
+        return self._mode
+
+    @mode.setter 
+    def mode(self, mode):
+        if mode in ['r','r+', 'w', 'w-', 'x', 'a']:
+            self._mode = mode
+        else:
+            raise NameError("mode must be ['r','r+', 'w', 'w-', 'x', 'a']")
+
+    def set_default(self, mode = 'r', name_criteria=None,
+            object_criteria= None, deep=10, func=None):
+        self.mode = mode
+        self.name_criteria = name_criteria 
+        self.object_criteria = object_criteria 
+        self.deep = deep
+        self.func = None
+
+    def acces_h5(self):
+        return acces_h5(self.file_name_or_object, mode=self.mode)
+
+    def select_keys(self):
+        return yield_keys(self.file_name_or_object,
+                name_criteria=self.name_criteria,
+                object_criteria=self.object_criteria,
+                deep=self.deep, mode=self.mode, func=self.func)
+
 
