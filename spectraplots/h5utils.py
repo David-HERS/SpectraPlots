@@ -197,7 +197,7 @@ def string_to_float(number_string, dot='_'):
         number = float('Nan')
     return number
 
-def __apply_attributes(file_name_or_object, keys,  attribute_name,
+def _apply_attributes(file_name_or_object, keys,  attribute_name,
         criteria=False, func=string_to_float, start=None, end=None, step=None):
     """
     attr_name
@@ -227,7 +227,28 @@ def __apply_attributes(file_name_or_object, keys,  attribute_name,
 def apply_name_attribute(h5_object, attribute_name, func=string_to_float,
         start = None, end=None, step=None, confirm=True):
    """
+   apply_name_attribute
+   Create a hdf5 attribute with the h5_object name with a rule the default 
+   is replace the '_' with '.' and search the number_string 
+   Parameters:
+   ---------------------------------------------------------------------------   
+   h5_obj: h5py.Group, h5py.Dataset
 
+   attribute_name: string
+
+   func: func
+         Function to choose the attribute value with name of h5 object the 
+         the default is the string_to_float method
+
+   start:Int
+         Starts of character in h5_obj.name 
+
+   end:Int
+       Ends of character in h5_obj.name
+   step:Int
+        Step of character in h5_obj.name
+   confirm:Bool
+           Confirms the creation of the attribute
    """
    slide = slice(start, end, step)
    attribute = func(h5_object.name[slide])
@@ -308,12 +329,18 @@ class h5Utils():
         """
         See yield_items
         """
-        self.set_kwargs(mode=mode, name_criteria=name_criteria, 
-                object_criteria=object_criteria, deep=deep, func=func)
-        return yield_items(self.file_name_or_object,
-                name_criteria=self.name_criteria,
-                object_criteria=self.object_criteria,
-                deep=self.deep, mode=self.mode, func=self.func)
+        file_name_or_object = self.file_name_or_object
+        mode = mode or self.mode
+        name_criteria = name_criteria or self.name_criteria
+        object_criteria = object_criteria or self.object_criteria
+        deep = deep or self.deep
+        func = func or self.func
+        kwargs = kwargs
+
+        return yield_items(file_name_or_object,
+                name_criteria=name_criteria,
+                object_criteria=object_criteria,
+                deep=deep, mode=mode, func=func)
 
     def set_keys(self, *,name_criteria=None,
             object_criteria=None, deep=None,
@@ -326,10 +353,10 @@ class h5Utils():
             keys = keys + (h5_object.name,)
         return keys 
 
-    def apply_keys(self, keys):
+    def apply_keys(self, keys, func=None):
+        func = func or self.func
         with self.acces_h5() as h5_object:
             for  key in keys:
-                if self.func:
-                    self.func(h5_object.get(keys))
+                if func:
+                    func(h5_object.get(keys))
                     yield h5_object.get(key)
-
