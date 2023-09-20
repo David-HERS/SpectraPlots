@@ -335,7 +335,6 @@ class h5Utils():
         object_criteria = object_criteria or self.object_criteria
         deep = deep or self.deep
         func = func or self.func
-        kwargs = kwargs
 
         return yield_items(file_name_or_object,
                 name_criteria=name_criteria,
