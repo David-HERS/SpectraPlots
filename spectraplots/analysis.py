@@ -7,6 +7,7 @@ import numpy as np
 from scipy.optimize import least_squares
 from scipy.constants import h, c, e
 
+from .h5utils import h5Utils, criteria_name, is_dataset, is_group
 
 
 def find_near(a, Near):
@@ -21,6 +22,7 @@ def find_near(a, Near):
     a = np.asarray(a)
     nearpos = (np.abs(a-Near)).argmin()
     return nearpos
+
 
 def array_region(a, *intervals, index=False, dim=0):
     """
@@ -60,6 +62,7 @@ def array_region(a, *intervals, index=False, dim=0):
         else: region = np.concatenate((region,__region(a, begin, end)))
     return region
 
+
 def nm_to_ev(unit):
     np.seterr(divide='ignore', invalid='ignore')  # Suppress divide-by-zero warnings
     try:
@@ -71,6 +74,58 @@ def nm_to_ev(unit):
         np.seterr(divide='warn', invalid='warn')  # Reset warning behavior
     return np.where(unit != 0, to_unit, np.nan)
 
+
+def folder_average(path, folder_name='', fmt='%1.5f', display=False):
+    """
+    folder average
+    Gives the average number of folders that have the same data structure
+
+    Parameters
+    --------------------------------------------------------------------------- 
+    path: str
+          A path that contains folders with same structure
+
+    folder_name: str
+                 General name folder 
+
+    Returns
+    --------------------------------------------------------------------------- 
+    returns: None 
+             A average files in the main path with the general name in files  
+    """
+    if path == '':
+        path = str(input('Add principal path:'))
+
+    with os.scandir(path) as folders:
+        path_folders = ['/'+folder.name for folder in folders
+                if (folder.is_dir() and (folder_name in folder.name))]
+
+    if path_folders:
+        if display: print(f'Folders:{path_folders}')
+    else:
+        if display: print('No Folders')
+        return None 
+
+    #The folder[0] is used to give the name files
+    with os.scandir(path+path_folders[0]) as files:
+        path_files = ['/'+file.name for file in files if file.is_file()]
+
+    if path_files:
+        if display: print(f'Name files:{path_files}')
+    else:  
+        if display: print('No files')
+        return None
+
+    for file in path_files:
+        for count,  folder  in enumerate(path_folders):
+            data = np.loadtxt(path+folder+file) 
+            if count ==0: average = np.zeros_like(data)
+            average = data + average 
+        np.savetxt(path+file, average/(count+1), fmt=fmt)
+        if display: print(f'Successful file:{path+file}')
+
+
+    return None 
 ###############################################################################
 #MODELS
 ###############################################################################
@@ -84,10 +139,11 @@ def linear_model(x, m=1.0, b=0.0):
 def sommerfel_broadening(x, amplitude, center, sigma, rydberg):
     return ((amplitude/(1+np.exp((-x+center)/sigma)))
             *(2/(1+np.exp(-2*np.pi*np.sqrt(rydberg/abs(x-center))))))
+
+
 ###############################################################################
 #Fits
 ###############################################################################
-
 def fit_baseline(spectra, baseline, *intervals,
         model= linear_model, parameters= (1.0, 0.0), index = False, dim=0):
     """
