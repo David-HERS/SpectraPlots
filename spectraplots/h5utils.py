@@ -357,5 +357,7 @@ class h5Utils():
         with self.acces_h5() as h5_object:
             for  key in keys:
                 if func:
-                    func(h5_object.get(keys))
+                    func(h5_object.get(key))
+                    yield h5_object.get(key)
+                else:
                     yield h5_object.get(key)
