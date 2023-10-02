@@ -1,4 +1,4 @@
-from os import access
+from os import accesss
 import sys
 import string
 
@@ -6,7 +6,7 @@ import numpy as np
 import h5py
 
 ###############################################################################
-#Acces and Open h5 files
+#access and Open h5 files
 ###############################################################################
 class h5FileContext:
     def __init__(self, file_name_or_object, **kwargs):
@@ -32,13 +32,13 @@ class h5FileContext:
             self.h5_file.close()
 
 
-def _acces_h5(file_name_or_object, mode='r', **kwargs):
+def _access_h5(file_name_or_object, mode='r', **kwargs):
     return h5FileContext(file_name_or_object, mode=mode, **kwargs)
 
 
 def _all_keys(file_name_or_object, deep = 10, mode = 'r' ):
     "Recursively find all keys in an h5py.Group."
-    with __acces_h5(file_name_or_object, mode = mode) as h5_object:
+    with __access_h5(file_name_or_object, mode = mode) as h5_object:
         keys = (h5_object.name,)
         deep  = abs(deep) #for bool(0jj)
         if bool(deep):
@@ -63,7 +63,7 @@ def yield_items(file_name_or_object, name_criteria = None,
     object_criteria = object_criteria or __default_criteria
     func = func or __default_criteria
 
-    with _acces_h5(file_name_or_object, mode = mode, **kwargs) as h5_object:
+    with _access_h5(file_name_or_object, mode = mode, **kwargs) as h5_object:
         if object_criteria(h5_object) and name_criteria(h5_object.name):
             func(h5_object)
             yield  h5_object
@@ -92,7 +92,7 @@ def _h5_keys(file_name_or_object, name_criteria = None, object_criteria = None,
     object_criteria = object_criteria or __default_criteria
 
     names = __all_keys(file_name_or_object, deep = deep)
-    with acces_h5(file_name_or_object, mode='r') as h5_object:
+    with access_h5(file_name_or_object, mode='r') as h5_object:
         names_criteria = [name for name in names
                 if object_criteria(h5_object.get(name)) and name_criteria(name)]
     return names_criteria
@@ -214,7 +214,7 @@ def _apply_attributes(file_name_or_object, keys,  attribute_name,
     rule: func
           Method to choose the attribute value with key file 
     """
-    with __acces_h5(file_name_or_object, mode='r+') as h5_object:
+    with __access_h5(file_name_or_object, mode='r+') as h5_object:
         if not(criteria): criteria= __default_criteria
         slide = slice(start, end, step)
         
@@ -319,9 +319,9 @@ class h5Utils():
         self.kwargs = kwargs
         return self
 
-    def acces_h5(self, *,mode = None):
+    def access_h5(self, *,mode = None):
         self.mode = mode or self.mode
-        return _acces_h5(self.file_name_or_object, mode=self.mode, **self.kwargs)
+        return _access_h5(self.file_name_or_object, mode=self.mode, **self.kwargs)
 
     def select_items(self, *,name_criteria=None,
             object_criteria=None, deep=None,
@@ -354,7 +354,7 @@ class h5Utils():
 
     def apply_keys(self, keys, func=None):
         func = func or self.func
-        with self.acces_h5() as h5_object:
+        with self.access_h5() as h5_object:
             for  key in keys:
                 if func:
                     func(h5_object.get(key))
