@@ -130,6 +130,32 @@ def folder_average(path, folder_name='', fmt='%1.5f', display=False):
 
 def baseline(dataset, interval=None, name= '', suffix='',prefix='',
              deg=None, max_it=None, tol=None):
+    """
+    Create a baseline for h5py.Dataset object and save as attribute
+
+    Parameters
+    --------------------------------------------------------------------------- 
+    dataset: array_like
+        [[x1, y1], [x2, y2]...]
+    interval: array_like
+        [a, b] interval for baseline
+    name: str, default:'Baseline'
+        name for baseline attribute 
+    suffix: str, default:''
+        suffix for name 
+    prefix: str, default:''
+        prefix for name
+    deg: int, default:3
+        Degree of the polynomial that will estimate the data baseline. A low degree may fail to detect all the baseline present, while a high degree may make the data too oscillatory, especially at the edges.  
+    max_it: int, default:100
+        Maximum number of iterations to perform.
+    tol: float, default:1e-03
+        Tolerance to use when comparing the difference between the current fit coefficients and the ones from the last iteration. The iteration procedure will stop when the difference between them is lower than tol.
+    
+    Returns
+    --------------------------------------------------------------------------- 
+    Array with the baseline amplitude for every original point in y and saved  as attribute in dataset
+    """
     if name: name = name
     else: name = 'Baseline' 
     if prefix: name = f'{prefix}name'
@@ -148,9 +174,30 @@ def baseline(dataset, interval=None, name= '', suffix='',prefix='',
 def pl_map(file_name_or_object, name='Map', mode='r+',
            name_criteria=None, object_criteria=None, func=None,
            xattr = 'OssilaX2000.SMU1 Voltage(V)', baseline=''): 
-        
+    """
+    Creates a photoluminisence map (X, Y, Z)
+    Parameters
+    --------------------------------------------------------------------------- 
+    file_name_or_object: str or h5py object
+                         
+    name: str, default:'Map'
+        name for dataset
+    mode: str, default: 'r+'
+        mode for read h5 file
+    name_criteria:Bool function
+
+    object_criteria:Bool function
+
+    func: function
+        Function for sort keys like  function(h5_obj, key) 
+    xattr: str, default: 'OssilaX2000.SMU1 Voltage(V)'
+        attribute name for obtain X axis
+    baseline: str, default:''
+        If dataset has baseline attribute specify
+    """
     sample = h5Utils(file_name_or_object,mode=mode,
-                     name_criteria=name_criteria, func=func)
+                     name_criteria=name_criteria, object_criteria=object_criteria,
+                     func=func)
     keys = sample.keys
     sample.func = _default_func
     x = np.zeros(len(keys))
@@ -201,23 +248,23 @@ def fit_baseline(spectra, baseline, *intervals,
     Parameters:
     ___________________________________________________________________________  
     spectra: array_like
-             [[x1, y1], [x2, y2]...]
+        [[x1, y1], [x2, y2]...]
     baseline: array_like
-             [[x1, yb1], [x2, yb2]...]. 
-             Note: The abscissa axis in spectra and baseline must correspond
+        [[x1, yb1], [x2, yb2]...]. 
+        Note: The abscissa axis in spectra and baseline must correspond
     intervals: np.ndarray
-                like interval1, interval2... intervaln ,where interval are 
-                has the form [a1, a2] a2>a1 or  *[[a1,a2], [b1,b2]]...
-                check ArrayRegiom() function.
+        like interval1, interval2... intervaln ,where interval are 
+        has the form [a1, a2] a2>a1 or  *[[a1,a2], [b1,b2]]...
+        check ArrayRegiom() function.
     model: func
-           default linear_model(x, m=slope, b=intercept)
+        default linear_model(x, m=slope, b=intercept)
     parameters: model parameters
-                default (m=1.0, b=0.0)
+        default (m=1.0, b=0.0)
             
     Returns
     ___________________________________________________________________________ 
     res: OptimizeResult 
-         References https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.least_squares.html#scipy.optimize.least_squares
+        References https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.least_squares.html#scipy.optimize.least_squares
     """
 
     spectra = array_region(spectra, *intervals, index=index, dim=dim)
