@@ -1,4 +1,3 @@
-from os import accesss
 import sys
 import string
 
@@ -112,6 +111,10 @@ def is_group(h5_object):
     return isinstance(h5_object, h5py.Group)
 
 
+def is_root(name):
+    return name == '/'
+
+
 def criteria_name(
         path, in_path=[] , not_in_path=[],
         starts = [], ends = [], not_starts = [], not_ends = [],
@@ -157,7 +160,7 @@ def criteria_name(
 ###############################################################################
 #for create or modify hdf5 files 
 ###############################################################################
-def _defalut_func(h5_object):
+def _default_func(h5_object):
     return None
 
 
@@ -265,7 +268,7 @@ class h5Utils():
        self.name_criteria = name_criteria or _default_criteria
        self.object_criteria = object_criteria or _default_criteria
        self.deep = deep
-       self.func = func or _defalut_func 
+       self.func = func or _default_func 
        self.kwargs = kwargs
 
     @property
@@ -306,7 +309,7 @@ class h5Utils():
         self.name_criteria = _default_criteria
         self.object_criteria = _default_criteria
         self.deep = 10
-        self.func = _defalut_func
+        self.func = _default_func
         return self
 
     def set_kwargs(self, *,mode = None, name_criteria=None,
@@ -343,13 +346,30 @@ class h5Utils():
 
     def set_keys(self, *,name_criteria=None,
             object_criteria=None, deep=None,
-            mode=None, func= None, ):
-
+            mode=None, func= None):
+        """
+        set_keys 
+        Returns the string name (key) of h5 objects that satisfies name_criteria,
+        object_criteria and deep.
+        Parameters:
+        ---------------------------------------------------------------------------   
+        name_criteria: Bool function
+        object_criteria: Bool function
+        func: func 
+              is the criteria to sort like func(h5_obj, key), where key is string type
+              and h5_obj contain objects related to key, the sort function must
+              return a numeric value
+        """
         self.set_kwargs(mode=mode, name_criteria=name_criteria, 
                 object_criteria=object_criteria, deep=deep, func=func)
         keys = ()
-        for h5_object in self.select_items():
+        for h5_object in self.select_items(func=_default_criteria):
             keys = keys + (h5_object.name,)
+
+        if self.func != _default_func:
+            with self.access_h5() as h5_obj:
+                _func = lambda key: self.func(h5_obj, key)
+                keys = sorted(keys, key=_func)
         return keys 
 
     def apply_keys(self, keys, func=None):
