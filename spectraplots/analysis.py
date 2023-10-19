@@ -6,8 +6,9 @@ import h5py
 import numpy as np
 from scipy.optimize import least_squares
 from scipy.constants import h, c, e
+import peakutils
 
-from .h5utils import h5Utils, criteria_name, is_dataset, is_group
+from .h5utils import h5Utils, criteria_name, is_dataset, is_group, _default_func
 
 
 def find_near(a, Near):
@@ -126,6 +127,54 @@ def folder_average(path, folder_name='', fmt='%1.5f', display=False):
 
 
     return None 
+
+def baseline(dataset, interval=None, name= '', suffix='',prefix='',
+             deg=None, max_it=None, tol=None):
+    if name: name = name
+    else: name = 'Baseline' 
+    if prefix: name = f'{prefix}name'
+    if suffix: name = f'name{suffix}'
+    if is_dataset(dataset):
+        array = np.array(dataset)
+        if interval: array = array_region(array, interval)
+        _baseline =  peakutils.baseline(array[:,1], 
+                                        deg=deg, max_it=max_it, tol=tol)
+        array[:,1] = array[:,1]-_baseline
+        dataset.attrs.create(f'{name}', data=np.array(_baseline))
+        dataset.attrs.create(f'{name}.Interval', data = np.array(interval))
+        dataset.attrs.create(f'{name}.Substract', data = np.array(array))
+
+
+def pl_map(file_name_or_object, name='Map', mode='r+',
+           name_criteria=None, object_criteria=None, func=None,
+           xattr = 'OssilaX2000.SMU1 Voltage(V)', baseline=''): 
+        
+    sample = h5Utils(file_name_or_object,mode=mode,
+                     name_criteria=name_criteria, func=func)
+    keys = sample.keys
+    sample.func = _default_func
+    x = np.zeros(len(keys))
+
+    for count, dataset in enumerate(sample.apply_keys(keys)):
+        #suppose that all data is similar in size
+        if baseline: array = np.array(dataset.attrs.get(baseline))
+        else: array = np.array(dataset)
+        if count == 0:
+            x[count] = dataset.attrs.get(xattr)
+            y = array[:,0]
+            X, Y  = np.meshgrid(x, y)
+            Z = np.zeros_like(X)
+            Z[:,count] = array[:,1]
+        else:
+            x[count] = dataset.attrs.get(xattr)
+            X[:,count] = x[count]
+            Z[:,count] = array[:,1]
+        if count==len(keys)-1:
+            try:
+                dataset.parent.parent.parent.create_dataset(name, data=np.array([X, Y, Z]))
+            except ValueError:
+                print(ValueError, 'try another name')
+    return None
 ###############################################################################
 #MODELS
 ###############################################################################
