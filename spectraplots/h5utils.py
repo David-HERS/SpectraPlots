@@ -262,13 +262,14 @@ def apply_name_attribute(h5_object, attribute_name, func=string_to_float,
 
 class h5Utils():
     def __init__(self, file_name_or_object, *, mode = 'r', deep = 10, 
-            name_criteria=None, object_criteria=None, func=None, **kwargs):
+            name_criteria=None, object_criteria=None, func=None, keys=(), **kwargs):
        self.file_name_or_object = file_name_or_object
        self.mode = mode
        self.name_criteria = name_criteria or _default_criteria
        self.object_criteria = object_criteria or _default_criteria
        self.deep = deep
        self.func = func or _default_func 
+       self.keys = keys
        self.kwargs = kwargs
 
     @property
@@ -302,7 +303,14 @@ class h5Utils():
 
     @property
     def keys(self):
-        return self.set_keys()
+        return self._keys
+
+    @keys.setter
+    def keys(self, keys):
+        if isinstance(keys, tuple) or isinstance(keys, list):
+            self._keys = keys
+        else:
+            print('It is not possible to set the keys. Maybe Tuple or List ')
 
     def set_default(self):
         self.mode = 'r'
@@ -313,12 +321,13 @@ class h5Utils():
         return self
 
     def set_kwargs(self, *,mode = None, name_criteria=None,
-            object_criteria= None, deep=None, func=None,**kwargs):
+            object_criteria= None, deep=None, func=None, keys=(), **kwargs):
         self.mode = mode or self.mode
         self.name_criteria = name_criteria or self.name_criteria
         self.object_criteria = object_criteria or self.object_criteria
         self.deep = deep or self.deep
         self.func = func or self.func
+        self.keys = keys or self.keys 
         self.kwargs = kwargs
         return self
 
@@ -344,7 +353,7 @@ class h5Utils():
                 object_criteria=object_criteria,
                 deep=deep, mode=mode, func=func)
 
-    def set_keys(self, *,name_criteria=None,
+    def mk_keys(self, *,name_criteria=None,
             object_criteria=None, deep=None,
             mode=None, func= None):
         """
@@ -370,11 +379,14 @@ class h5Utils():
             with self.access_h5() as h5_obj:
                 _func = lambda key: self.func(h5_obj, key)
                 keys = sorted(keys, key=_func)
+        self.keys = keys
         return keys 
 
-    def apply_keys(self, keys, func=None):
+    def apply_keys(self, keys=None, mode=None ,func=None):
+        keys = keys or self.keys
         func = func or self.func
-        with self.access_h5() as h5_object:
+        mode = mode or self.mode
+        with self.access_h5(mode=mode) as h5_object:
             for  key in keys:
                 if func:
                     func(h5_object.get(key))
