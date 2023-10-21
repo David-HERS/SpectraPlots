@@ -8,6 +8,35 @@ import h5py
 #access and Open h5 files
 ###############################################################################
 class h5FileContext:
+    """
+    A recursive context manager for working with HDF5 files and groups using the 'with' statement.
+
+    This context manager is designed to handle the opening and closing of HDF5 files and groups while
+    ensuring proper resource management. It can be used recursively, making it suitable for working
+    with nested HDF5 structures.
+
+    Parameters:
+    -----------
+    file_name_or_object : str or h5py.File or h5py.Group
+        The name of the HDF5 file, an open h5py File, or an open h5py Group object.
+
+    **kwargs : additional keyword arguments
+        Additional keyword arguments to be passed when opening the HDF5 file (if applicable).
+
+    Example:
+    --------
+    # Using 'h5FileContext' to open an HDF5 file and a nested group
+    with h5FileContext('data.h5', mode='r') as h5_file:
+        # Work with the open HDF5 file
+        data = h5_file['my_dataset'][:]
+
+        # Nested context to open a group
+        with h5FileContext(h5_file['nested_group']) as h5_group:
+            # Work with the open HDF5 group
+
+    # The file is automatically closed when exiting the outermost context.
+    # See yield_items for example
+    """
     def __init__(self, file_name_or_object, **kwargs):
         self.file_name_or_object = file_name_or_object
         self.kwargs = kwargs
@@ -36,7 +65,42 @@ def _access_h5(file_name_or_object, mode='r', **kwargs):
 
 
 def _all_keys(file_name_or_object, deep = 10, mode = 'r' ):
-    "Recursively find all keys in an h5py.Group."
+    """
+    Recursively find all keys (dataset paths) in an h5py Group.
+
+    This function iterates through an h5py Group in an HDF5 file and recursively finds all the keys (dataset paths)
+    within that group. The function returns a tuple of dataset paths.
+
+    Parameters:
+    -----------
+    file_name_or_object : str or h5py.Group
+        The name of the HDF5 file or an open h5py Group object to traverse.
+
+    deep : int, optional
+        The maximum depth to traverse within the HDF5 group. A depth of 0 means only the current level.
+        Default is 10. Use a negative value for unlimited depth.
+
+    mode : str, optional
+        The file access mode for reading the HDF5 file. Default is 'r' (read-only).
+
+    Returns:
+    --------
+    tuple
+        A tuple containing all the dataset paths within the specified h5py Group.
+
+    Example:
+    --------
+    # Get all dataset paths within a specific HDF5 group
+    keys = _all_keys('data.h5', deep=3)
+    for key in keys:
+        print(f'Dataset Path: {key}')
+
+    # Alternatively, you can use an already opened h5py Group object
+    group = h5py.File('data.h5', 'r')['my_group']
+    keys = _all_keys(group, deep=-1)
+    for key in keys:
+        print(f'Dataset Path: {key}')
+    """
     with __access_h5(file_name_or_object, mode = mode) as h5_object:
         keys = (h5_object.name,)
         deep  = abs(deep) #for bool(0jj)
@@ -52,10 +116,68 @@ def _all_keys(file_name_or_object, deep = 10, mode = 'r' ):
 
 def yield_items(file_name_or_object, name_criteria = None,
         object_criteria= None, deep = 10, mode = 'r' , func= None, **kwargs):
-    """Yields the items for the h5 file  with some cirterias
-      
     """
-    
+    Yield items from an HDF5 file based on specified criteria.
+
+    This function iterates through items (Groups and Datasets) in an HDF5 file or Group and yields items
+    that meet specified criteria, such as name and object-based conditions.
+
+    Parameters:
+    -----------
+    file_name_or_object : str or h5py.File or h5py.Group
+        The name of the HDF5 file or an open h5py File/Group object to traverse.
+
+    name_criteria : function, optional
+        A user-defined function that determines whether a dataset or group's name meets specific criteria.
+        If not provided, the default criteria always return True.
+
+    object_criteria : function, optional
+        A user-defined function that determines whether a dataset or group's object itself meets specific criteria.
+        If not provided, the default criteria always return True.
+
+    deep : int, optional
+        The maximum depth to traverse within the HDF5 file. A depth of 0 means only the current level.
+        Default is 10. Use a negative value for unlimited depth.
+
+    mode : str, optional
+        The file access mode for reading the HDF5 file. Default is 'r' (read-only).
+
+    func : function, optional
+        A user-defined function to apply to each matching dataset or group.
+
+    **kwargs : additional keyword arguments
+        Additional keyword arguments to pass to the underlying `_access_h5` function.
+
+    Yields:
+    -------
+    h5py.Dataset or h5py.Group
+        Datasets and groups that meet the specified criteria.
+
+    Example:
+    --------
+    # Define custom criteria functions
+    def custom_name_criteria(name):
+        return 'data' in name
+
+    def custom_object_criteria(obj):
+        return 'temperature' in obj.attrs and obj.attrs['temperature'] > 25
+
+    # Yield all datasets and groups with names containing 'data' and temperature above 25
+    for item in yield_items('data.h5', name_criteria=custom_name_criteria,
+                            object_criteria=custom_object_criteria, deep=3):
+        print(f'Found item: {item.name}')
+
+    # Define a custom function to process matching items
+    def process_item(item):
+        if isinstance(item, h5py.Dataset):
+            print(f'Dataset: {item.name}')
+        else:
+            print(f'Group: {item.name}')
+
+    # Apply the custom function during iteration
+    for item in yield_items('data.h5', deep=-1, func=process_item):
+        pass
+    """
     def __default_criteria(path):
         return True
     name_criteria = name_criteria or __default_criteria
@@ -165,6 +287,33 @@ def _default_func(h5_object):
 
 
 def string_to_float(number_string, dot='_'):
+    """
+    Convert a formatted number string into a float.
+
+    This function takes a string representing a number and attempts to convert it to a float.
+    It performs cleaning on the input string to remove non-numeric characters, replace the dot
+    (or a specified character) with the decimal point, and handles cases where the number
+    may be improperly formatted.
+
+    Parameters:
+    -----------
+    number_string : str
+        The string containing the number to be converted.
+
+    dot : str, optional
+        The character used as a decimal point in the string. Default is underscore ('_').
+
+    Returns:
+    --------
+    float
+        The converted float value. If the conversion fails, it returns 'NaN' (Not-a-Number).
+
+    Example:
+    --------
+    # Handle a poorly formatted number string
+    result = string_to_float("abc12345_67def")
+    print(result)  # Output: 12345.64
+    """
     #clean number_string
     alphabet = list(string.ascii_letters)
     symbols = list(string.punctuation.replace(dot,''))
