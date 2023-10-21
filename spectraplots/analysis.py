@@ -171,7 +171,7 @@ def baseline(dataset, interval=None, name= '', suffix='',prefix='',
         dataset.attrs.create(f'{name}.Substract', data = np.array(array))
 
 
-def pl_map(file_name_or_object, name='Map', mode='r+',
+def mk_map(file_name_or_object, name='Map', mode='r+',
            name_criteria=None, object_criteria=None, func=None,
            xattr = 'OssilaX2000.SMU1 Voltage(V)', baseline=''): 
     """
