@@ -65,7 +65,8 @@ markers = [
 
 #Spectrscopy plots
 ###############################################################################
-def spectra(dataset, style='', save= '' , attributes=[], baseline='',  **kwargs):
+def spectra(dataset, style='', save= '' , figsize=(6.3,6.3/2),
+        attributes=[], baseline='',  **kwargs):
     """
     Plot a spectra from an HDF5 dataset.
 
@@ -119,8 +120,8 @@ def spectra(dataset, style='', save= '' , attributes=[], baseline='',  **kwargs)
         try:plt.style.use(style)
         except NameError: plt.style.use('default')
 
-    fig, ax = plt.subplots(1, 1, constrained_layout= True)
-    [l.remove() for l in ax.lines]
+    fig, ax = plt.subplots(figsize=figsize, constrained_layout= True)
+    [l.remove() for l in ax.lines]#for interactive_spectra plot
     ax.plot(data[:,0],data[:,1], label=label, **kwargs)
     ax.set_xlabel('Energy(eV)')
     ax.set_ylabel('Intensity(counts)')
@@ -207,6 +208,83 @@ def interactive_spectra(file_name_or_object, keys, mode='r',
     return sample
 
 
+def spectra_map(dataset, cmap='binary', style='', save= '' , attributes=[], interval=[],
+        func=None, dpi=600, figsize=(6.3/2, 6.3/2), **kwargs):
+    """
+    Create a color map plot of spectra data.
+
+    Parameters:
+    - dataset: array-like or h5py.Dataset
+        A dataset containing spectral data. If a h5py.Dataset, it should have three arrays
+        (X, Y, Z) representing voltage, energy, and intensity data, respectively. If
+        an array-like, it should be in the format [X, Y, Z].
+
+    - cmap: str, optional (default: 'binary')
+        Colormap to be used for the color mapping of the intensity data.
+
+    - style: str or list, optional (default: '')
+        A Matplotlib style or a list of styles to apply to the plot. If not provided, the 'default' style is used. Styles can be specified as strings or lists of strings. When a list is provided, styles are applied in the order they appear in the list.
+
+    - save: str, optional (default: '')
+        If provided, the path to save the plot as an image file. The file type is determined
+        by the file extension in the 'save' parameter.
+
+    - attributes: list, optional (default: [])
+        A list of dataset attributes to display as labels on the plot. Attributes should
+        be provided as strings, and their values are fetched from the dataset.
+
+    - interval: list, optional (default: [])
+        A list specifying the Y-axis (energy) interval to display. The interval should be in the form [min_value, max_value].
+
+    - func: function, optional (default: None)
+        A function to apply to the intensity data (Z) before plotting. This function can
+        be used for data preprocessing or transformation.
+
+    - dpi: int, optional (default: 600)
+        Dots per inch (resolution) for saving the plot as an image.
+
+    - figsize: tuple, optional (default: (6.3/2, 6.3/2))
+        Tuple specifying the width and height of the figure in inches.
+
+    **kwargs: keyword arguments
+        Additional keyword arguments to be passed to the matplotlib.pyplot.pcolormesh function.
+
+    Returns:
+    None
+
+    Example Usage:
+    spectra_map(dataset, cmap='viridis', style='seaborn', save='spectra.png', attributes=['Sample', 'Temperature'])
+    """
+    label=''
+    if is_dataset(dataset):
+        X, Y, Z = np.array(dataset)
+        if func: Z=func(Z)
+        for attribute in attributes:
+            label += f'{attribute}:{dataset.attrs.get(attribute)}\n'
+        if interval:
+            Y[Y<interval[0]]= np.nan
+            Y[Y>interval[1]]= np.nan
+            delete = []
+            for m in range(Y.shape[0]):
+                if np.isnan(Y[m,0]):
+                    delete.append(m)
+            X = np.delete(X, delete, axis=0)
+            Y = np.delete(Y, delete, axis=0)
+            Z = np.delete(Z, delete, axis=0)
+    else:
+        X, Y, Z=np.array(dataset)
+
+    if style:
+        try:plt.style.use(style)
+        except NameError: plt.style.use('default')
+
+    fig, ax = plt.subplots(figsize=figsize)
+    pc = ax.pcolormesh(X, Y, Z, cmap=cmap, **kwargs)
+    fig.colorbar(pc, ax=ax)
+    plt.xlabel('Voltage(V)')
+    plt.ylabel('Energy(eV)')
+    if save: plt.savefig(save, dpi=dpi)
+    return None
 
 
 
