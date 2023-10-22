@@ -173,32 +173,52 @@ def baseline(dataset, interval=None, name= '', suffix='',prefix='',
 
 def mk_map(file_name_or_object, name='Map', mode='r+',
            name_criteria=None, object_criteria=None, func=None,
-           xattr = 'OssilaX2000.SMU1 Voltage(V)', baseline=''): 
+           xattr = 'OssilaX2000.SMU1 Voltage(V)', baseline='', attributes=[]): 
     """
-    Creates a photoluminisence map (X, Y, Z)
+    Create a photoluminescence map (X, Y, Z).
+
     Parameters
-    --------------------------------------------------------------------------- 
-    file_name_or_object: str or h5py object
-                         
-    name: str, default:'Map'
-        name for dataset
-    mode: str, default: 'r+'
-        mode for read h5 file
-    name_criteria:Bool function
+    ----------
+    file_name_or_object : str or h5py object
+        The name of the HDF5 file or the h5py object representing the file.
 
-    object_criteria:Bool function
+    name : str, optional, default: 'Map'
+        The name for the dataset that will be created.
 
-    func: function
-        Function for sort keys like  function(h5_obj, key) 
-    xattr: str, default: 'OssilaX2000.SMU1 Voltage(V)'
-        attribute name for obtain X axis
-    baseline: str, default:''
-        If dataset has baseline attribute specify
+    mode : str, optional, default: 'r+'
+        The mode for reading the HDF5 file.
+
+    name_criteria : callable, optional
+        A function that filters dataset names. Only datasets matching this criteria will be considered.
+
+    object_criteria : callable, optional
+        A function that filters datasets based on their attributes. Only datasets matching this criteria will be considered.
+
+    func : callable, optional
+        A function for sorting keys. This function should accept an h5py object and key and return a sortable value.
+
+    xattr : str, optional, default: 'OssilaX2000.SMU1 Voltage(V)'
+        The attribute name used to obtain the X-axis data.
+
+    baseline : str, optional, default: ''
+        The name of the baseline attribute in the dataset, if available.
+
+   attributes : list, optional, default: []
+        A list of numeric attribute names to be aggregated and stored in the output dataset. The function computes the average of these attributes across all datasets.
+        
+
+    Returns
+    -------
+    None
+
+    Example Usage
+    -------------
+    >>> mk_map('your_file.h5', name='PhotoluminescenceMap', attributes=['Sample', 'Temperature'])
     """
     sample = h5Utils(file_name_or_object,mode=mode,
                      name_criteria=name_criteria, object_criteria=object_criteria,
                      func=func)
-    keys = sample.keys
+    keys = sample.mk_keys()
     sample.func = _default_func
     x = np.zeros(len(keys))
 
@@ -206,19 +226,36 @@ def mk_map(file_name_or_object, name='Map', mode='r+',
         #suppose that all data is similar in size
         if baseline: array = np.array(dataset.attrs.get(baseline))
         else: array = np.array(dataset)
+
         if count == 0:
             x[count] = dataset.attrs.get(xattr)
+            attributes_dict = {}
+            for attribute in attributes:
+                    attributes_dict[attribute] = np.float64(dataset.attrs.get(attribute))
+               
             y = array[:,0]
             X, Y  = np.meshgrid(x, y)
             Z = np.zeros_like(X)
             Z[:,count] = array[:,1]
+
         else:
+
+            for attribute in attributes:
+                attributes_dict[attribute] += np.float64(dataset.attrs.get(attribute))
+
             x[count] = dataset.attrs.get(xattr)
             X[:,count] = x[count]
             Z[:,count] = array[:,1]
         if count==len(keys)-1:
             try:
-                dataset.parent.parent.parent.create_dataset(name, data=np.array([X, Y, Z]))
+                root = dataset
+                while True:
+                    root = root.parent
+                    if root.name == '/':
+                        break
+                mesh = root.create_dataset(name, data=np.array([X, Y, Z]))
+                for attribute in attributes:
+                    mesh.attrs.create(attribute, attributes_dict[attribute]/(count+1))
             except ValueError:
                 print(ValueError, 'try another name')
     return None
