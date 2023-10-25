@@ -128,12 +128,80 @@ def spectra(dataset, style='', save= '' , figsize=(6.3,6.3/2),
     ax.minorticks_on()
     if label:ax.legend()
     if save: plt.savefig(save, dpi=dpi, transparent= True)
-
     return None
 
 
+def spectra_and_baseline(dataset,baseline='Baseline', style='', save= '' , figsize=(6.3,6.3/2),
+       attributes=[],  **kwargs):
+   """
+   Plot a spectra from an HDF5 dataset.
+
+   Parameters:
+   -----------
+   dataset : h5py.Dataset or numpy.ndarray
+       The dataset containing spectral data. If it's an h5py dataset, it is expected to have two columns:
+       the first column for energy values (in eV), and the second column for intensity (counts).
+
+   style : str, optional
+       The style to be applied to the plot. If provided, it should be a valid Matplotlib style name.
+       If not specified, the 'default' style will be used.
+
+   save : str, optional
+       The file path to save the generated plot as an image. If not provided, the plot will not be saved.
+
+   attributes : list, optional
+       A list of attribute names to include in the plot's label. If the dataset is an h5py dataset,
+       these attributes will be retrieved and added to the label.
+
+   baseline : str, optional
+       The name of an attribute that can be used as a baseline for the spectral data. If specified, this
+       attribute will be used as the intensity data, and the energy data will be taken from the first column
+       of the dataset.
+
+   **kwargs : additional keyword arguments
+       Additional keyword arguments to be passed to the Matplotlib `ax.plot` function for customizing the plot.
+
+   Returns:
+   --------
+   None
+
+   Examples:
+   ---------
+   # Plot a spectrum from an HDF5 dataset with custom styling and save the plot.
+   spectra(hdf5_dataset, style='seaborn-darkgrid', save='spectrum.png', attributes=['sample_name'])
+   """
+   label=''
+   
+   if is_dataset(dataset):
+       data = np.array(dataset)
+       title = dataset.name
+       for attribute in attributes:
+           label += f'{attribute}:{dataset.attrs.get(attribute)}\n'
+       if baseline:
+           baseline = dataset.attrs.get(f'{baseline}')
+       else: return print('No baseline!!!') 
+   else:
+       data=np.array(dataset)
+
+   if style:
+       try:plt.style.use(style)
+       except NameError: plt.style.use('default')
+
+   fig, ax = plt.subplots(figsize=figsize, constrained_layout= True)
+   [l.remove() for l in ax.lines]#for interactive_spectra plot
+   ax.plot(data[:,0],data[:,1], label='Original Spectrum\n'+label, **kwargs)
+   ax.plot(baseline[:,0],baseline[:,1], label='Baseline Substract', **kwargs)
+   ax.set_xlabel('Energy(eV)')
+   ax.set_ylabel('Intensity(counts)')
+   ax.minorticks_on()
+   if label:ax.legend()
+   if save: plt.savefig(save, dpi=dpi, transparent= True)
+
+   return None
+
+
 def interactive_spectra(file_name_or_object, keys, mode='r',
-                style='', attributes=[], baseline='', **kwargs):
+                style='', attributes=[], baseline='', plot=spectra, **kwargs):
     """
     Create an interactive spectral plot for HDF5 files.
 
@@ -196,12 +264,12 @@ def interactive_spectra(file_name_or_object, keys, mode='r',
         sample = file_name_or_object
 
     #with sample.access_h5() as h5_obj:
-
     @widgets.interact(key=(0, len(keys) - 1 , 1))
-    def plot(key=0):
+    def plot_interact(key=0):
         """Remove old lines from plot and plot net one"""
         dataset = sample.get(keys[key])
-        spectra(dataset, style=style, attributes=attributes, baseline=baseline)
+        print(dataset.name)
+        plot(dataset, style=style, attributes=attributes, baseline=baseline)
         return None
         
         
@@ -279,6 +347,7 @@ def spectra_map(dataset, cmap='binary', style='', save= '' , attributes=[], inte
         except NameError: plt.style.use('default')
 
     fig, ax = plt.subplots(figsize=figsize)
+    #ax.contour(X, Y, Z, levels = [0.15,0.2, 0.5,0.9,1.0], colors='k', linewidths=0.1)
     pc = ax.pcolormesh(X, Y, Z, cmap=cmap, **kwargs)
     fig.colorbar(pc, ax=ax)
     plt.xlabel('Voltage(V)')
