@@ -51,16 +51,18 @@ def array_region(a, *intervals, index=False, dim=0):
         if begin<=end: 
             return a[begin:end]
         else:
-            return a[begin:end:-1]
+            return a[end:begin]
 
     a = np.asarray(a)
-    for i, interval in enumerate(intervals):
-        if index: begin, end = a[interval[0], interval[1]]
-        else : begin, end= (find_near(a[:, dim], interval[0]),
-                            find_near(a[:, dim], interval[1])
-                            )
-        if i==0: region = __region(a, begin, end)
-        else: region = np.concatenate((region,__region(a, begin, end)))
+    if intervals:
+        for i, interval in enumerate(intervals):
+            if index: begin, end = a[interval[0], interval[1]]
+            else : begin, end= (find_near(a[:, dim], interval[0]),
+                                find_near(a[:, dim], interval[1])
+                                )
+            if i==0: region = __region(a, begin, end)
+            else: region = np.concatenate((region,__region(a, begin, end)))
+    else: region=a
     return region
 
 
@@ -128,7 +130,7 @@ def folder_average(path, folder_name='', fmt='%1.5f', display=False):
 
     return None 
 
-def baseline(dataset, interval=None, name= '', suffix='',prefix='',
+def baseline(dataset, interval=[], name= '', suffix='',prefix='',
              deg=None, max_it=None, tol=None):
     """
     Create a baseline for h5py.Dataset object and save as attribute
@@ -161,14 +163,16 @@ def baseline(dataset, interval=None, name= '', suffix='',prefix='',
     if prefix: name = f'{prefix}name'
     if suffix: name = f'name{suffix}'
     if is_dataset(dataset):
-        array = np.array(dataset)
-        if interval: array = array_region(array, interval)
-        _baseline =  peakutils.baseline(array[:,1], 
+        data = np.array(dataset)
+        if interval: data = array_region(data, interval)
+        _baseline =  peakutils.baseline(data[:,1], 
                                         deg=deg, max_it=max_it, tol=tol)
-        array[:,1] = array[:,1]-_baseline
-        dataset.attrs.create(f'{name}', data=np.array(_baseline))
+        data[:,1] = data[:,1]-_baseline
+        base  = data.copy()
+        base[:,1] = _baseline
+        dataset.attrs.create(f'{name}', data=np.array(base))
         dataset.attrs.create(f'{name}.Interval', data = np.array(interval))
-        dataset.attrs.create(f'{name}.Substract', data = np.array(array))
+        dataset.attrs.create(f'{name}.Substract', data = np.array(data))
 
 
 def mk_map(file_name_or_object, name='Map', mode='r+',
@@ -259,6 +263,80 @@ def mk_map(file_name_or_object, name='Map', mode='r+',
             except ValueError:
                 print(ValueError, 'try another name')
     return None
+
+
+def mk_profile(file_name_or_object, keys, profile_value, name='Profile',
+        xattr = 'Wavelenght(nm)', baseline='', attributes=[], 
+        mode='r+', func=None):
+    """
+    Create a profile dataset based on specified values in HDF5 datasets. 
+    Used for PLE
+    Parameters
+    ----------
+    file_name_or_object : str or h5py object
+        The name of the HDF5 file or the h5py object representing the file.
+
+    keys : list
+        A list of dataset keys to extract profile values from.
+
+    profile_value : float
+        The value at which the profile is extracted from each dataset.
+
+    name : str, optional, default: 'Profile'
+        The name for the profile dataset that will be created.
+
+    xattr : str, optional, default: 'Wavelength(nm)'
+        The attribute name used to obtain the X-axis data.
+
+    baseline : str, optional, default: ''
+        The name of the baseline attribute in the dataset, if available.
+
+    attributes : list, optional, default: []
+        A list of attribute names to be aggregated and stored in the output dataset. The function computes the average of these attributes across all datasets.
+
+    mode : str, optional, default: 'r+'
+        The mode for reading the HDF5 file.
+
+    func : callable, optional
+        A function to process the profile values before storing them in the dataset. This function should accept the profile value and the dataset as parameters and return the processed value.
+
+    Returns
+    -------
+    None
+
+    """
+
+    sample = h5Utils(file_name_or_object,mode=mode)
+    x = np.zeros(len(keys))
+    y = np.zeros(len(keys))
+
+    for count, dataset in enumerate(sample.apply_keys(keys)):
+        x[count] = float(dataset.attrs.get(xattr))
+        point = find_near(dataset[:,0], profile_value)
+
+        if baseline: y[count] = dataset.attrs.get(baseline)[point, 1]
+        else: y[count] = dataset[point, 1]
+        if func: y[count] = func(y[count], dataset) 
+
+        if count==len(keys)-1:
+            try:
+                root = dataset
+                while True:
+                    root = root.parent
+                    if root.name == '/':
+                        break
+                profile = np.stack((x,y), axis=-1)
+                dataset_profile = root.create_dataset(name, data=profile)
+                for attribute in attributes:
+                    dataset_profile.attrs.create(attribute, attributes_dict[attribute]/(count+1))
+            except ValueError:
+                print(ValueError, 'try another name')
+
+    return None
+
+
+
+
 ###############################################################################
 #MODELS
 ###############################################################################
