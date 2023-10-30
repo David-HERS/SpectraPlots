@@ -356,6 +356,64 @@ def spectra_map(dataset, cmap='binary', style='', save= '' , attributes=[], inte
     return None
 
 
+def waterfall(file_name_or_object, keys, offsetplot, vlines = (),
+        attributes_units=[], label_position=None,
+        label_offset=None, x_limit=None, y_limit=None, func=None,
+              dpi = 150, save = '', mplstyle ='', figsize = (6.3, 6.3/2)):
+    """
+    Create a waterfall plot for pl spectrums (energy vs intensity)
+        > experiements is a class of labdata
+        > Waterfal width is a array of lenght experiments with spaces within plots
+    """
+    if mplstyle: plt.style.use(mplstyle)
+    mpl.rcParams.update({
+    "markers.fillstyle": 'none',
+    "xtick.top":False,})
+    #Spectrum plot--------------------------------------------------------------
+
+    fig, ax = plt.subplots(figsize=figsize, constrained_layout= True)
+    ax.set_xlabel('Energía[eV]')
+    ax.set_ylabel('Intesidad[u.a]')
+    secax = ax.secondary_xaxis('top', functions=(nm_to_ev,  nm_to_ev))
+    secax.set_xlabel('Longitud de Onda[nm]')
+    secax.minorticks_on()
+    ax.minorticks_on()
+
+    initv = 0.0
+    maxv = []
+    minv = []
+    with h5py.File(file_name_or_object, mode='r') as file:
+        for count, key in enumerate(keys):
+            dataset = file.get(key)
+            if func: data = func(dataset)
+            else: data= np.array(dataset)
+
+            #label
+            if label_position: pass
+            else: label_position = data[0,0]
+            if label_offset: pass
+            else: label_offset = np.mean(data[:,1])
+            label_offset = np.min(data[:,1]) + label_offset 
+            label = ''  
+            for attribute in attributes_units:
+                       label += f'{dataset.attrs.get(attribute[0])}{attribute[1]}\n'
+
+            #plots
+            height = offsetplot*count
+            maxv.append(np.amax(data[:,1])+height)
+            minv.append(np.amin(data[:,1]))
+            ax.plot(data[:,0], data[:,1]+ height,ls='-', color = 'k')
+            ax.text(label_position, label_offset+height, label, color="k")
+
+            #initv =  xdata[find_near(ydata, maxv[0])]
+
+
+    ax.vlines(vlines, minv[0], maxv[-1], ls = '--', color = 'k')
+    ax.set_yticks([])
+    if x_limit: ax.set_xlim([x_limit[0],x_limit[1]])
+    if y_limit: ax.set_ylim([y_limit[0],y_limit[1]])
+    if save: plt.savefig(save, dpi = dpi)
+    return None
 
 
 
